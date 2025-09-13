@@ -12,6 +12,18 @@ This project provides a lightweight Tkinter app to manage Cloudflared tunnels an
 
 The executable will be at `dist/CloudflaredTunnelManager.exe`.
 
+## CI Build (GitHub Actions)
+- Workflow: `.github/workflows/windows-build.yml`
+- Triggers: push to `main`, tags starting with `v`, or manual dispatch
+
+How to use:
+- Push to `main`: `git push`
+- Manual run: GitHub → Actions → `build-windows` → `Run workflow`
+- Tag release: `git tag -a v0.1.1 -m "New release" && git push --tags`
+
+Outputs:
+- Download the built `.exe` from the workflow run’s Artifacts section: `CloudflaredTunnelManager`
+
 ## Manual PyInstaller Command
 ```
 pyinstaller --onefile --noconsole --optimize=2 --strip \

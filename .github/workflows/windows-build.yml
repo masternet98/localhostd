@@ -1,0 +1,38 @@
+name: build-windows
+
+on:
+  push:
+    branches: [ main ]
+    tags: [ 'v*' ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install PyInstaller
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install pyinstaller
+
+      - name: Build .exe
+        run: |
+          python -m PyInstaller --onefile --noconsole --optimize=2 ^
+            --exclude-module PIL --exclude-module numpy --exclude-module matplotlib ^
+            --name CloudflaredTunnelManager ^
+            tunnel_manager.py
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: CloudflaredTunnelManager
+          path: dist/CloudflaredTunnelManager.exe
+
