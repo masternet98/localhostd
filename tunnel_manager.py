@@ -189,8 +189,8 @@ class TunnelRunner:
 # --------------------------
 
 
-def download_with_progress(url: str, local_path: str, progress_cb: Optional[Callable[[int, int], None]] = None, chunk_size: int = 8192) -> None:
-    with urllib.request.urlopen(url) as resp:
+def download_with_progress(url: str, local_path: str, progress_cb: Optional[Callable[[int, int], None]] = None, chunk_size: int = 8192, timeout: int = 30) -> None:
+    with urllib.request.urlopen(url, timeout=timeout) as resp:
         total = int(resp.headers.get("Content-Length", 0))
         read = 0
         os.makedirs(os.path.dirname(local_path), exist_ok=True)
@@ -202,10 +202,8 @@ def download_with_progress(url: str, local_path: str, progress_cb: Optional[Call
                 f.write(chunk)
                 read += len(chunk)
                 if progress_cb:
-                    try:
-                        progress_cb(read, total)
-                    except Exception:
-                        pass
+                    # Let callback raise to allow cancellation or error bubbling
+                    progress_cb(read, total)
 
 
 def auto_install_cloudflared(progress_cb: Optional[Callable[[int, int], None]] = None) -> Optional[str]:
@@ -291,6 +289,8 @@ class App(tk.Tk):
         self.state_ = TunnelState()
         self.runner: Optional[TunnelRunner] = None
         self._ui_queue: "queue.Queue[Callable[[], None]]" = queue.Queue()
+        self._after_id: Optional[str] = None
+        self._closing: bool = False
 
         # Top: cloudflared status
         frm_top = ttk.Frame(self)
@@ -362,7 +362,7 @@ class App(tk.Tk):
         self.protocol("WM_DELETE_WINDOW", self._on_close)
 
         # Kick off async UI update loop
-        self.after(100, self._drain_ui_queue)
+        self._schedule_drain()
 
         # Detect cloudflared
         self.cloudflared_path: Optional[str] = None
@@ -382,13 +382,21 @@ class App(tk.Tk):
 
     # -------------- UI helpers --------------
     def _drain_ui_queue(self) -> None:
+        if self._closing:
+            return
         try:
             while True:
                 fn = self._ui_queue.get_nowait()
                 fn()
         except queue.Empty:
             pass
-        self.after(100, self._drain_ui_queue)
+        self._schedule_drain()
+
+    def _schedule_drain(self) -> None:
+        if self._closing:
+            return
+        # Store id to cancel on close
+        self._after_id = self.after(100, self._drain_ui_queue)
 
     def _append_log(self, line: str) -> None:
         self.state_.push_log(line)
@@ -536,7 +544,13 @@ class App(tk.Tk):
         t.start()
 
     def _on_close(self) -> None:
+        self._closing = True
         try:
+            if self._after_id is not None:
+                try:
+                    self.after_cancel(self._after_id)
+                except Exception:
+                    pass
             if self.runner:
                 self.runner.stop()
         finally:
