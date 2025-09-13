@@ -25,14 +25,10 @@ jobs:
 
       - name: Build .exe
         run: |
-          python -m PyInstaller --onefile --noconsole --optimize=2 ^
-            --exclude-module PIL --exclude-module numpy --exclude-module matplotlib ^
-            --name CloudflaredTunnelManager ^
-            tunnel_manager.py
+          python -m PyInstaller --onefile --noconsole --optimize=2 --exclude-module PIL --exclude-module numpy --exclude-module matplotlib --name CloudflaredTunnelManager tunnel_manager.py
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: CloudflaredTunnelManager
           path: dist/CloudflaredTunnelManager.exe
-
